@@ -1,56 +1,51 @@
+# report.py
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 
-# lambda function defination
-AU = lambda df: df.sum(axis=0)
-Avg = lambda df: df.mean(axis=0)
-SC = lambda df: df.notnull().sum(axis=0)
-AV = lambda df: (df >= 4).sum(axis=0)
-BC = lambda df: (df.rank(axis=1) - 1).sum(axis=0)
-CR = lambda df: np.sign(df.apply(lambda col: np.sign(df.rsub(col, axis=0)).sum(axis=0))).sum(axis=0)
+# Lambda function definitions
+AU = lambda df: df.sum(axis=0)  # Sum of ratings
+Avg = lambda df: df.sum() / df.gt(0).size  # Average rating
+SC = lambda df: df.gt(0).sum(axis=0)  # Count of non-zero ratings
+AV = lambda df: (df >= 4).sum(axis=0)  # Count of ratings greater than or equal to 4 for each movie
+BC = lambda df: ((df.shape[1] - df.rank(axis=1, method='average', ascending=False)) - 1).sum(axis=0)  # Rank-based score
+CR = lambda df: np.sign(df.apply(lambda col: np.sign(df.rsub(col, axis=0)).sum(axis=0))).sum(axis=0)  # Comparative ranking
 
 # read ratings.dat
-with open('data/ratings.dat', 'r') as file:
-    lines = file.readlines()
+ratings = np.genfromtxt('data/ratings.dat', delimiter='::', dtype=int)
 
-# user x items
-ratings = []
-for line in lines:
-    data = line.strip().split('::')
-    ratings.append([int(data[0]), int(data[1]), int(data[2])])
+ratings_df = pd.DataFrame(ratings, columns=['UserID', 'MovieID', 'Rating', 'Timestamp'])
 
-ratings = np.array(ratings)
-num_users = np.max(ratings[:, 0])
-num_items = np.max(ratings[:, 1])
-user_item_matrix = np.zeros((num_users, num_items))
+# create user-item matrix
+user_item_matrix = ratings_df.pivot_table(index='UserID', columns='MovieID', values='Rating', fill_value=0)
 
-# user x items = rating
-for row in ratings:
-    user_item_matrix[row[0] - 1, row[1] - 1] = row[2]
-
-# clustering 3 groups by k-means algorithm
-kmeans = KMeans(n_clusters=3, random_state=0)
+# k-means
+kmeans = KMeans(n_clusters=3, random_state=42)
 user_groups = kmeans.fit_predict(user_item_matrix)
 
-# count group users
 group_counts = np.bincount(user_groups)
 
-# print group user number information
+# print group number
 group_counts_df = pd.DataFrame({'Group': np.arange(1, len(group_counts) + 1), 'Number of Users': group_counts})
 print(group_counts_df)
 
-# print result
+
 for group in range(3):
     group_users = np.where(user_groups == group)[0] + 1
 
-    # 결과 계산
-    res = pd.DataFrame()
-    res['AU'] = AU(pd.DataFrame(user_item_matrix))
-    res['Avg'] = Avg(pd.DataFrame(user_item_matrix))
-    res['SC'] = SC(pd.DataFrame(user_item_matrix))
-    res['AV'] = AV(pd.DataFrame(user_item_matrix))
-    res['BC'] = BC(pd.DataFrame(user_item_matrix))
-    # res['CR'] = CR(pd.DataFrame(user_item_matrix))
+    # extract data for users in the current group
+    group_data = user_item_matrix[user_item_matrix.index.isin(group_users)]
 
-    print(f"\nGroup {group + 1}:\n{res}")
+    # calculate results
+    res = pd.DataFrame()
+    res['AU'] = AU(group_data)
+    res['Avg'] = Avg(group_data)
+    res['SC'] = SC(group_data)
+    res['AV'] = AV(group_data)
+    res['BC'] = BC(group_data)
+    res['CR'] = CR(group_data)
+
+    # extract top 10 results
+    res_top10 = pd.DataFrame({col: res[col].nlargest(10).index for col in res.columns}, index=np.arange(1, 11))
+
+    print(f"\nGroup {group + 1}:\n{res_top10}")
