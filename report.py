@@ -5,7 +5,7 @@ from sklearn.cluster import KMeans
 
 # Lambda function definitions
 AU = lambda df: df.sum(axis=0)  # Sum of ratings
-Avg = lambda df: df.sum() / df.gt(0).size  # Average rating
+Avg = lambda df: df.mask(df==0).mean(axis=0)  # Average rating
 SC = lambda df: df.gt(0).sum(axis=0)  # Count of non-zero ratings
 AV = lambda df: (df >= 4).sum(axis=0)  # Count of ratings greater than or equal to 4 for each movie
 BC = lambda df: ((df.shape[1] - df.rank(axis=1, method='average', ascending=False)) - 1).sum(axis=0)  # Rank-based score
