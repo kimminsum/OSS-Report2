@@ -8,7 +8,7 @@ AU = lambda df: df.sum(axis=0)  # Sum of ratings
 Avg = lambda df: df.mask(df==0).mean(axis=0)  # Average rating
 SC = lambda df: df.gt(0).sum(axis=0)  # Count of non-zero ratings
 AV = lambda df: (df >= 4).sum(axis=0)  # Count of ratings greater than or equal to 4 for each movie
-BC = lambda df: ((df.shape[1] - df.rank(axis=1, method='average', ascending=False)) - 1).sum(axis=0)  # Rank-based score
+BC = lambda df: (df.mask(df==0).rank(axis=1, method='average') - 1).sum(axis=0)  # Rank-based score
 CR = lambda df: np.sign(df.apply(lambda col: np.sign(df.rsub(col, axis=0)).sum(axis=0))).sum(axis=0)  # Comparative ranking
 
 # read ratings.dat
@@ -20,7 +20,7 @@ ratings_df = pd.DataFrame(ratings, columns=['UserID', 'MovieID', 'Rating', 'Time
 user_item_matrix = ratings_df.pivot_table(index='UserID', columns='MovieID', values='Rating', fill_value=0)
 
 # k-means
-kmeans = KMeans(n_clusters=3, random_state=42)
+kmeans = KMeans(n_clusters=3)
 user_groups = kmeans.fit_predict(user_item_matrix)
 
 group_counts = np.bincount(user_groups)
